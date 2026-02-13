@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Измерения 1D–4D</title>
+
+  <style>
+    :root{
+      --bg1:#0b1020; --bg2:#0e1a33;
+      --card: rgba(15,29,58,.72);
+      --text:#e9eefc; --muted:#a9b6d6;
+      --stroke: rgba(255,255,255,.14);
+      --shadow: 0 18px 60px rgba(0,0,0,.35);
+      --r: 18px;
+
+      /* 4D tube color */
+      --tube:#2f46ff;
+      --tube2:#1d2fd0;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; min-height:100vh;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      color:var(--text);
+      background: radial-gradient(1200px 700px at 20% 20%, #203a74 0%, transparent 60%),
+                  radial-gradient(900px 600px at 80% 30%, #3c1f6a 0%, transparent 55%),
+                  linear-gradient(160deg,var(--bg1),var(--bg2));
+      display:flex; align-items:center; justify-content:center;
+      padding:24px;
+    }
+    .app{
+      width:min(980px, 100%);
+      display:grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap:18px;
+    }
+    @media (max-width:860px){ .app{grid-template-columns:1fr} }
+
+    .card{
+      background: var(--card);
+      border:1px solid var(--stroke);
+      backdrop-filter: blur(10px);
+      box-shadow:var(--shadow);
+      border-radius: var(--r);
+      padding:18px;
+    }
+    h1{margin:0 0 6px 0; font-size:22px; letter-spacing:.2px;}
+    .sub{color:var(--muted); font-size:13px; line-height:1.45}
+
+    .row{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:14px}
+    .pill{
+      border:1px solid var(--stroke);
+      border-radius:999px;
+      padding:8px 10px;
+      display:flex; align-items:center; gap:8px;
+      background: rgba(255,255,255,.04);
+    }
+    .pill b{font-weight:800}
+    .k{font-variant-numeric: tabular-nums}
+
+    /* wave-like input */
+    .waveWrap{margin-top:14px}
+    .waveLabel{display:flex; justify-content:space-between; align-items:baseline; gap:10px}
+    .waveLabel span{color:var(--muted); font-size:12px}
+    input[type="range"]{
+      -webkit-appearance:none;
+      width:100%;
+      height:16px;
+      border-radius:999px;
+      outline:none;
+      background: linear-gradient(90deg, rgba(255,255,255,.16), rgba(255,255,255,.06));
+      border:1px solid var(--stroke);
+      overflow:hidden;
+    }
+    input[type="range"]::-webkit-slider-thumb{
+      -webkit-appearance:none;
+      width:18px; height:18px;
+      border-radius:50%;
+      background: rgba(255,255,255,.92);
+      border:2px solid rgba(0,0,0,.25);
+      box-shadow: 0 6px 18px rgba(0,0,0,.35);
+      cursor:pointer;
+      position:relative;
+      z-index:3;
+    }
+    .wave{
+      height:10px;
+      margin-top:10px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background: rgba(255,255,255,.05);
+      position:relative;
+      overflow:hidden;
+    }
+    .wave::before{
+      content:"";
+      position:absolute; inset:-40% -30%;
+      background: conic-gradient(from 180deg, rgba(255,255,255,.0), rgba(255,255,255,.18), rgba(255,255,255,.0));
+      animation: spin 2.2s linear infinite;
+      filter: blur(2px);
+      opacity:.85;
+    }
+    .wave::after{
+      content:"";
+      position:absolute; inset:0;
+      background: linear-gradient(90deg, rgba(255,255,255,.20), rgba(255,255,255,.0));
+      transform: translateX(calc(var(--p)*1%));
+      opacity:.35;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* Right side */
+    .viz{display:grid; grid-template-rows:auto 1fr auto; gap:12px;}
+    .stageTitle{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+    .badge{
+      padding:6px 10px;
+      border:1px solid var(--stroke);
+      border-radius:999px;
+      font-size:12px;
+      background: rgba(255,255,255,.05);
+      color:var(--muted);
+    }
+
+    .canvas{
+      height:320px;
+      border-radius: var(--r);
+      border:1px solid var(--stroke);
+      background: rgba(0,0,0,.18);
+      display:grid;
+      place-items:center;
+      position:relative;
+      overflow:hidden;
+    }
+    .glow{
+      position:absolute; inset:-20%;
+      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.08), transparent 60%);
+      pointer-events:none;
+    }
+
+    /* 1D */
+    .s1D{
+      width:240px; height:6px;
+      border-radius:999px;
+      background: rgba(255,255,255,.9);
+      box-shadow: 0 10px 35px rgba(0,0,0,.35);
+    }
+
+    /* 2D */
+    .s2D{
+      width:170px; height:170px;
+      border-radius:14px;
+      background: linear-gradient(135deg, rgba(255,255,255,.92), rgba(255,255,255,.55));
+      box-shadow: 0 18px 45px rgba(0,0,0,.35);
+    }
+
+    /* 3D cube (simple) */
+    .cube{
+      width:150px; height:150px;
+      position:relative;
+      transform-style:preserve-3d;
+      transform: rotateX(-18deg) rotateY(28deg);
+      animation: cubeFloat 2.2s ease-in-out infinite;
+    }
+    @keyframes cubeFloat{
+      0%,100%{transform: rotateX(-18deg) rotateY(28deg) translateY(0)}
+      50%{transform: rotateX(-22deg) rotateY(40deg) translateY(-6px)}
+    }
+    .cube .face{
+      position:absolute;
+      width:150px; height:150px;
+      background: rgba(255,255,255,.85);
+      border:1px solid rgba(0,0,0,.18);
+      border-radius:12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.28);
+    }
+    .cube .front{transform: translateZ(75px)}
+    .cube .back{transform: rotateY(180deg) translateZ(75px); opacity:.65}
+    .cube .right{transform: rotateY(90deg) translateZ(75px); opacity:.78}
+    .cube .left{transform: rotateY(-90deg) translateZ(75px); opacity:.58}
+    .cube .top{transform: rotateX(90deg) translateZ(75px); opacity:.82}
+    .cube .bottom{transform: rotateX(-90deg) translateZ(75px); opacity:.52}
+
+    /* 4D SVG */
+    .tessSvg{
+      width: 290px;
+      height: 290px;
+    }
+
+    .desc h2{margin:0 0 6px 0; font-size:18px}
+    .desc p{margin:0; color:var(--muted); line-height:1.55; font-size:13.5px}
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <div class="card">
+      <h1>Измерения (1D → 4D)</h1>
+      <div class="sub">Двигай “голосовой” слайдер: по проценту меняется форма и описание.</div>
+
+      <div class="waveWrap">
+        <div class="waveLabel">
+          <div class="pill"><b id="mode">1D</b> <span id="rangeText">1%–25%</span></div>
+          <div class="pill"><span>Значение:</span> <b class="k" id="val">10%</b></div>
+        </div>
+
+        <input id="slider" type="range" min="1" max="100" value="10" />
+        <div class="wave" id="wave"></div>
+      </div>
+
+      <div class="row" style="margin-top:16px">
+        <div class="pill"> Описание ✅</div>
+        <div class="pill">иземение - измр ✅</div>
+        <div class="pill">4D тессеракт SVG ✅</div>
+      </div>
+    </div>
+
+    <div class="card viz">
+      <div class="stageTitle">
+        <div class="badge" id="badge">Форма: линия</div>
+        <div class="badge">Демо</div>
+      </div>
+
+      <div class="canvas" id="canvas">
+        <div class="glow"></div>
+      </div>
+
+      <div class="desc">
+        <h2 id="title">1D — Одно измерение</h2>
+        <p id="text">Есть только длина. Представь линию без ширины и высоты.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const slider = document.getElementById('slider');
+    const valEl = document.getElementById('val');
+    const modeEl = document.getElementById('mode');
+    const rangeText = document.getElementById('rangeText');
+    const badge = document.getElementById('badge');
+    const canvas = document.getElementById('canvas');
+    const wave = document.getElementById('wave');
+    const title = document.getElementById('title');
+    const text = document.getElementById('text');
+
+    function setWaveProgress(p){ wave.style.setProperty('--p', p); }
+
+    function clearCanvas(){
+      [...canvas.querySelectorAll('.s1D,.s2D,.cube,svg')].forEach(n => n.remove());
+    }
+
+    function make1D(){
+      const line = document.createElement('div');
+      line.className = 's1D';
+      return line;
+    }
+    function make2D(){
+      const sq = document.createElement('div');
+      sq.className = 's2D';
+      return sq;
+    }
+    function make3D(){
+      const cube = document.createElement('div');
+      cube.className = 'cube';
+      ['front','back','right','left','top','bottom'].forEach(f=>{
+        const face=document.createElement('div');
+        face.className='face '+f;
+        cube.appendChild(face);
+      });
+      return cube;
+    }
+
+    // ===== 4D (SVG Tesseract) =====
+    let animId = null;
+    let currentSvg = null;
+
+    function stop4D(){
+      if (animId) cancelAnimationFrame(animId);
+      animId = null;
+      currentSvg = null;
+    }
+
+    function make4D(){
+      const NS = "http://www.w3.org/2000/svg";
+      const svg = document.createElementNS(NS, "svg");
+      svg.setAttribute("viewBox", "0 0 300 300");
+      svg.classList.add("tessSvg");
+
+      // defs for tube gradient
+      const defs = document.createElementNS(NS, "defs");
+      const lg = document.createElementNS(NS, "linearGradient");
+      lg.setAttribute("id", "tubeGrad");
+      lg.setAttribute("x1", "0"); lg.setAttribute("y1", "0");
+      lg.setAttribute("x2", "0"); lg.setAttribute("y2", "1");
+
+      const s1 = document.createElementNS(NS, "stop");
+      s1.setAttribute("offset", "0%");
+      s1.setAttribute("stop-color", getComputedStyle(document.documentElement).getPropertyValue('--tube').trim() || "#2f46ff");
+      const s2 = document.createElementNS(NS, "stop");
+      s2.setAttribute("offset", "100%");
+      s2.setAttribute("stop-color", getComputedStyle(document.documentElement).getPropertyValue('--tube2').trim() || "#1d2fd0");
+
+      lg.appendChild(s1); lg.appendChild(s2);
+      defs.appendChild(lg);
+      svg.appendChild(defs);
+
+      const g = document.createElementNS(NS, "g");
+      svg.appendChild(g);
+
+      // build tesseract vertices (outer + inner)
+      const outer = 1.0;
+      const inner = 0.45;
+
+      function verts(scale){
+        const v = [];
+        for (const sx of [-1,1]){
+          for (const sy of [-1,1]){
+            for (const sz of [-1,1]){
+              v.push({x:sx*scale, y:sy*scale, z:sz*scale});
+            }
+          }
+        }
+        return v; // 8
+      }
+      const Vout = verts(outer);
+      const Vin  = verts(inner);
+
+      // edges of a cube: connect vertices differing in exactly one coordinate sign
+      function cubeEdges(vertsArr, offset){
+        const edges = [];
+        for (let i=0;i<8;i++){
+          for (let j=i+1;j<8;j++){
+            const a=vertsArr[i], b=vertsArr[j];
+            const dx = (a.x===b.x)?0:1;
+            const dy = (a.y===b.y)?0:1;
+            const dz = (a.z===b.z)?0:1;
+            if (dx+dy+dz===1) edges.push([i+offset, j+offset]);
+          }
+        }
+        return edges; // 12
+      }
+
+      const allV = [...Vout, ...Vin]; // 16
+      const edges = [
+        ...cubeEdges(Vout, 0),
+        ...cubeEdges(Vin, 8),
+      ];
+
+      // connectors: each outer vertex connects to corresponding inner vertex
+      for (let i=0;i<8;i++) edges.push([i, i+8]); // 8
+
+      // 3D rotation + projection
+      function rotY(p, a){
+        const c=Math.cos(a), s=Math.sin(a);
+        return {x:p.x*c + p.z*s, y:p.y, z:-p.x*s + p.z*c};
+      }
+      function rotX(p, a){
+        const c=Math.cos(a), s=Math.sin(a);
+        return {x:p.x, y:p.y*c - p.z*s, z:p.y*s + p.z*c};
+      }
+
+      function project(p){
+        // perspective
+        const camZ = 3.2;
+        const k = 1/(camZ - p.z);
+        const sx = 150 + p.x * 120 * k;
+        const sy = 150 + p.y * 120 * k;
+        return {x:sx, y:sy, z:p.z, k};
+      }
+
+      // draw lines (sorted by depth so back lines go first)
+      const lines = edges.map(([a,b])=>{
+        const el = document.createElementNS(NS, "line");
+        el.setAttribute("stroke", "url(#tubeGrad)");
+        el.setAttribute("stroke-linecap", "round");
+        el.setAttribute("stroke-linejoin", "round");
+        g.appendChild(el);
+        return {a,b,el};
+      });
+
+      function frame(tms){
+        const t = tms * 0.001;
+        const ax = -0.6 + Math.sin(t*0.8)*0.12;
+        const ay = t*0.8;
+
+        // rotate + project all vertices
+        const P = allV.map(v=>{
+          let p = rotY(v, ay);
+          p = rotX(p, ax);
+          return project(p);
+        });
+
+        // depth sort (midpoint z)
+        const sorted = lines.slice().sort((L1,L2)=>{
+          const z1 = (P[L1.a].z + P[L1.b].z)/2;
+          const z2 = (P[L2.a].z + P[L2.b].z)/2;
+          return z1 - z2;
+        });
+
+        // update stroke width based on depth (tube feel)
+        sorted.forEach((L, idx)=>{
+          const pa=P[L.a], pb=P[L.b];
+          L.el.setAttribute("x1", pa.x); L.el.setAttribute("y1", pa.y);
+          L.el.setAttribute("x2", pb.x); L.el.setAttribute("y2", pb.y);
+
+          const midK = (pa.k + pb.k)/2;
+          const w = 10 + 10*midK; // thick tubes
+          L.el.setAttribute("stroke-width", w.toFixed(2));
+
+          // opacity a bit for far edges
+          const zMid = (pa.z + pb.z)/2;
+          const op = 0.55 + (zMid+1.2)*0.22;
+          L.el.setAttribute("opacity", Math.max(0.35, Math.min(1, op)).toFixed(2));
+        });
+
+        animId = requestAnimationFrame(frame);
+      }
+
+      stop4D();
+      currentSvg = svg;
+      animId = requestAnimationFrame(frame);
+      return svg;
+    }
+
+    function update(){
+      const p = Number(slider.value);
+      valEl.textContent = p + '%';
+      setWaveProgress(p);
+
+      let stage = 1;
+      if (p >= 26 && p <= 50) stage = 2;
+      else if (p >= 51 && p <= 75) stage = 3;
+      else if (p >= 76) stage = 4;
+
+      clearCanvas();
+      stop4D();
+
+      if (stage === 1){
+        modeEl.textContent = '1D';
+        rangeText.textContent = '1%–25%';
+        badge.textContent = 'Форма: линия';
+        title.textContent = '1D — Одно измерение';
+        text.textContent = 'Есть только длина. Представь линию без ширины и высоты.';
+        canvas.appendChild(make1D());
+      } else if (stage === 2){
+        modeEl.textContent = '2D';
+        rangeText.textContent = '26%–50%';
+        badge.textContent = 'Форма: плоскость';
+        title.textContent = '2D — Два измерения';
+        text.textContent = 'Длина и ширина. Плоская фигура, как рисунок на экране.';
+        canvas.appendChild(make2D());
+      } else if (stage === 3){
+        modeEl.textContent = '3D';
+        rangeText.textContent = '51%–75%';
+        badge.textContent = 'Форма: объём';
+        title.textContent = '3D — Три измерения';
+        text.textContent = 'Длина, ширина и высота. Объёмная форма (предметы в реальном мире).';
+        canvas.appendChild(make3D());
+      } else {
+        modeEl.textContent = '4D';
+        rangeText.textContent = '76%–100%';
+        badge.textContent = 'Форма: тессеракт';
+        title.textContent = '4D — Четыре измерения';
+        text.textContent = 'Проекция тессеракта: внешний куб + внутренний куб + 8 соединяющих рёбер.';
+        canvas.appendChild(make4D());
+      }
+    }
+
+    slider.addEventListener('input', update);
+    update();
+  </script>
+</body>
+</html>
